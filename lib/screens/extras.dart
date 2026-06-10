@@ -7,19 +7,21 @@ import 'package:intl/intl.dart';
 const _ink = Color(0xFF1A1C22);
 const _muted = Color(0xFF6B7280);
 
-/// Home + Menu actions for every screen's AppBar.
-List<Widget> menuActions(BuildContext context) => [
+/// Burger menu button (top-left) for every screen's AppBar.
+Widget menuButton(BuildContext context) => Builder(
+      builder: (ctx) => IconButton(
+        icon: const Icon(Icons.menu),
+        tooltip: 'Menu',
+        onPressed: () => Scaffold.of(ctx).openDrawer(),
+      ),
+    );
+
+/// Home action (top-right) — jumps back to the landing page.
+List<Widget> homeActions(BuildContext context) => [
       IconButton(
         icon: const Icon(Icons.home_outlined),
         tooltip: 'Home',
         onPressed: () => Navigator.popUntil(context, (r) => r.isFirst),
-      ),
-      Builder(
-        builder: (ctx) => IconButton(
-          icon: const Icon(Icons.menu),
-          tooltip: 'Menu',
-          onPressed: () => Scaffold.of(ctx).openDrawer(),
-        ),
       ),
     ];
 
@@ -39,6 +41,7 @@ class AppDrawer extends StatelessWidget {
             } else {
               Db.logout();
               context.read<AppState>().refreshAuth();
+              Navigator.popUntil(context, (r) => r.isFirst);
             }
           },
         );
@@ -74,7 +77,7 @@ class TripsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final trips = Db.tripsForCurrent();
     return Scaffold(
-      appBar: AppBar(title: const Text('My Trips'), backgroundColor: Colors.white, actions: menuActions(context)),
+      appBar: AppBar(title: const Text('My Trips'), backgroundColor: Colors.white, leading: menuButton(context), actions: homeActions(context)),
       drawer: const AppDrawer(),
       body: trips.isEmpty
           ? const Center(
@@ -123,7 +126,7 @@ class SavedScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     return Scaffold(
-      appBar: AppBar(title: const Text('Saved & Scheduled'), backgroundColor: Colors.white, actions: menuActions(context)),
+      appBar: AppBar(title: const Text('Saved & Scheduled'), backgroundColor: Colors.white, leading: menuButton(context), actions: homeActions(context)),
       drawer: const AppDrawer(),
       body: app.scheduled.isEmpty
           ? const Center(
@@ -171,7 +174,7 @@ class InsightsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final months = ['J','F','M','A','M','J','J','A','S','O','N','D'];
     return Scaffold(
-      appBar: AppBar(title: const Text('Your Impact'), backgroundColor: Colors.white, actions: menuActions(context)),
+      appBar: AppBar(title: const Text('Your Impact'), backgroundColor: Colors.white, leading: menuButton(context), actions: homeActions(context)),
       drawer: const AppDrawer(),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         Container(
@@ -268,7 +271,7 @@ class ProfileScreen extends StatelessWidget {
     final email = (user?['email'] as String?) ?? '';
     final stats = Db.statsForCurrent();
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile'), backgroundColor: Colors.white, actions: menuActions(context)),
+      appBar: AppBar(title: const Text('Profile'), backgroundColor: Colors.white, leading: menuButton(context), actions: homeActions(context)),
       drawer: const AppDrawer(),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         Row(children: [
@@ -330,7 +333,7 @@ class HelpScreen extends StatelessWidget {
       ['Why isn\'t my trip tracking?', 'Ensure \'Always Allow\' location permissions are enabled in your phone settings so we can track you even when the screen is off.'],
     ];
     return Scaffold(
-      appBar: AppBar(title: const Text('Help Centre'), backgroundColor: Colors.white, actions: menuActions(context)),
+      appBar: AppBar(title: const Text('Help Centre'), backgroundColor: Colors.white, leading: menuButton(context), actions: homeActions(context)),
       drawer: const AppDrawer(),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         ...faqs.map((f) => Card(

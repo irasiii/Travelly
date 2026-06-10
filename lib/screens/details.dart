@@ -130,7 +130,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
     final t = app.timesFor(r);
     final pts = r.points;
     return Scaffold(
-      appBar: AppBar(title: const Text('Trip Details'), backgroundColor: Colors.white, actions: menuActions(context)),
+      appBar: AppBar(title: const Text('Trip Details'), backgroundColor: Colors.white, leading: menuButton(context), actions: homeActions(context)),
       drawer: const AppDrawer(),
       body: Column(children: [
         SizedBox(

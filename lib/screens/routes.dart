@@ -18,7 +18,7 @@ class RoutesScreen extends StatelessWidget {
     final fastest = app.routes.isNotEmpty ? app.routes.first.points : <LatLng>[];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Routes'), backgroundColor: Colors.white, actions: menuActions(context)),
+      appBar: AppBar(title: const Text('My Routes'), backgroundColor: Colors.white, leading: menuButton(context), actions: homeActions(context)),
       drawer: const AppDrawer(),
       body: Column(
         children: [

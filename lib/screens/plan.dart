@@ -117,7 +117,7 @@ class _PlanScreenState extends State<PlanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Plan Journey'), backgroundColor: Colors.white, actions: menuActions(context)),
+      appBar: AppBar(title: const Text('Plan Journey'), backgroundColor: Colors.white, leading: menuButton(context), actions: homeActions(context)),
       drawer: const AppDrawer(),
       body: ListView(
         padding: const EdgeInsets.all(16),
