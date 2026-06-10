@@ -109,18 +109,22 @@ class RouteOption {
   String get durLabel => fmtDur(durSec);
 }
 
+double transitDurSec(String type, double km) {
+  final speed = type == 'train' ? 45.0 : (type == 'ferry' ? 25.0 : 24.0);
+  return km / speed * 3600 + (km > 2 ? 360 : 180);
+}
+
 RouteOption transitOption(BaseRoute b, String type, DateTime depAt, String? boardName) {
   final km = b.km;
-  final speed = type == 'train' ? 45.0 : 24.0;
-  final dur = km / speed * 3600 + (km > 2 ? 360 : 180);
+  final dur = transitDurSec(type, km);
   final walk = (0.12 * km + 0.4).clamp(0.0, 1.8);
   final kcal = (walk * 60).round();
-  final emit = type == 'train' ? 0.041 : 0.068;
+  final emit = type == 'train' ? 0.041 : (type == 'ferry' ? 0.055 : 0.068);
   final saved = km * (kCarCo2 - emit);
   return RouteOption(
     modeKey: 'transit',
-    mode: type == 'train' ? 'Train' : 'Bus',
-    icon: type == 'train' ? '🚆' : '🚌',
+    mode: type == 'train' ? 'Train' : (type == 'ferry' ? 'Ferry' : 'Bus'),
+    icon: type == 'train' ? '🚆' : (type == 'ferry' ? '⛴️' : '🚌'),
     km: km,
     durSec: dur,
     kcal: kcal,

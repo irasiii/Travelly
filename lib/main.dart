@@ -67,7 +67,7 @@ class AppState extends ChangeNotifier {
   List<RouteOption> routes = [];
   int selected = 0;
   int scootAvail = 0;
-  StopInfo? boardBus, boardTrain, destBus, destTrain;
+  StopInfo? boardBus, boardTrain, destBus, destTrain, boardFerry, destFerry;
 
   List<ScheduledTrip> scheduled = [];
 
@@ -147,28 +147,49 @@ class AppState extends ChangeNotifier {
     final d = await Services.nearestByType(to);
     boardBus = o.bus;
     boardTrain = o.train;
+    boardFerry = o.ferry;
     destBus = d.bus;
     destTrain = d.train;
+    destFerry = d.ferry;
     if (mode == 'transit') _rebuild();
   }
 
   bool get trainViable => boardTrain != null && destTrain != null;
+  bool get ferryViable => boardFerry != null && destFerry != null;
 
   /// Several upcoming bus/train options, departures spread across the next hour.
+  String? _boardNameFor(String type) {
+    if (type == 'train') return boardTrain?.name;
+    if (type == 'ferry') return boardFerry?.name;
+    return boardBus?.name;
+  }
+
   List<RouteOption> _buildTransit() {
     if (baseRoutes.isEmpty) return [];
-    final DateTime base = (timing == 'depart' && tripWhen != null)
-        ? tripWhen!
-        : (timing == 'arrive' && tripWhen != null)
-            ? tripWhen!.subtract(const Duration(minutes: 60))
-            : DateTime.now();
-    const offsets = [8, 20, 32, 44, 56];
+    // Available public-transport types near both ends (bus always, train/ferry if found).
+    final types = <String>['bus'];
+    if (trainViable) types.add('train');
+    if (ferryViable) types.add('ferry');
+
+    // Offsets spread departures (or arrivals) across the next ~hour.
+    const offsets = [6, 16, 28, 40, 52];
+    final arriveMode = timing == 'arrive' && tripWhen != null;
+    final departBase = (timing == 'depart' && tripWhen != null) ? tripWhen! : DateTime.now();
+
     final out = <RouteOption>[];
     for (var i = 0; i < offsets.length; i++) {
-      final type = (trainViable && i.isOdd) ? 'train' : 'bus';
+      final type = types[i % types.length];
       final b = baseRoutes[i % baseRoutes.length];
-      final boardName = type == 'train' ? boardTrain?.name : boardBus?.name;
-      out.add(transitOption(b, type, base.add(Duration(minutes: offsets[i])), boardName));
+      final dur = transitDurSec(type, b.km);
+      DateTime depAt;
+      if (arriveMode) {
+        // Work backwards: arrive a little before the target, depart = arrival - duration.
+        final arriveBy = tripWhen!.subtract(Duration(minutes: i * 8));
+        depAt = arriveBy.subtract(Duration(seconds: dur.round()));
+      } else {
+        depAt = departBase.add(Duration(minutes: offsets[i]));
+      }
+      out.add(transitOption(b, type, depAt, _boardNameFor(type)));
     }
     out.sort((a, b) => a.depAt!.compareTo(b.depAt!));
     return out;

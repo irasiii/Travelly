@@ -41,12 +41,12 @@ class Services {
   static Future<List<Suggestion>> geocode(String q, {LatLng? near}) async {
     if (q.trim().length < 2) return [];
     final bias = near != null ? '&lat=${near.latitude}&lon=${near.longitude}' : '';
-    final url = '$_photon/api/?q=${Uri.encodeComponent(q)}&limit=6&lang=en$bias';
+    final url = '$_photon/api/?q=${Uri.encodeComponent(q)}&limit=8&lang=en$bias';
     try {
       final r = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
       final data = jsonDecode(r.body);
       final feats = (data['features'] as List?) ?? [];
-      return feats.map((f) {
+      final out = feats.map<Suggestion>((f) {
         final p = f['properties'] ?? {};
         final c = f['geometry']['coordinates'];
         return Suggestion(
@@ -54,6 +54,35 @@ class Services {
           _secLabel(p),
           LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()),
           (p['osm_value'] ?? '').toString(),
+        );
+      }).toList();
+      if (out.isNotEmpty) return out;
+    } catch (_) {}
+    // Fallback: Nominatim catches towns/cities/regions Photon may miss.
+    return _nominatimSuggest(q);
+  }
+
+  static Future<List<Suggestion>> _nominatimSuggest(String q) async {
+    if (q.trim().length < 3) return [];
+    try {
+      final url =
+          'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(q)}&format=jsonv2&limit=6';
+      final r = await http.get(Uri.parse(url),
+          headers: {'User-Agent': 'TravellyApp/1.0 (QUT student project)'}).timeout(const Duration(seconds: 12));
+      final d = jsonDecode(r.body);
+      if (d is! List) return [];
+      return d.map<Suggestion>((e) {
+        final full = (e['display_name'] as String?) ?? 'Unknown';
+        final parts = full.split(',');
+        final main = parts.first.trim();
+        final sec = parts.length > 1
+            ? parts.sublist(1, parts.length > 3 ? 3 : parts.length).map((x) => x.toString().trim()).join(', ')
+            : '';
+        return Suggestion(
+          main,
+          sec,
+          LatLng(double.parse(e['lat'].toString()), double.parse(e['lon'].toString())),
+          (e['type'] ?? '').toString(),
         );
       }).toList();
     } catch (_) {
@@ -189,22 +218,24 @@ class Services {
     }
   }
 
-  /// Nearest named bus stop AND nearest train station (OpenStreetMap).
-  static Future<({StopInfo? bus, StopInfo? train})> nearestByType(LatLng p) async {
+  /// Nearest named bus stop, train station AND ferry terminal (OpenStreetMap).
+  static Future<({StopInfo? bus, StopInfo? train, StopInfo? ferry})> nearestByType(LatLng p) async {
     final q = '[out:json][timeout:20];('
         'node(around:1200,${p.latitude},${p.longitude})[highway=bus_stop];'
         'node(around:1200,${p.latitude},${p.longitude})[public_transport=platform];'
         'node(around:2500,${p.latitude},${p.longitude})[railway=station];'
         'node(around:2500,${p.latitude},${p.longitude})[railway=halt];'
-        ');out body 60;';
+        'node(around:3000,${p.latitude},${p.longitude})[amenity=ferry_terminal];'
+        'node(around:3000,${p.latitude},${p.longitude})[ferry=yes];'
+        ');out body 80;';
     try {
       final r = await http
           .post(Uri.parse(_overpass), body: {'data': q})
           .timeout(const Duration(seconds: 22));
       final d = jsonDecode(r.body);
       final els = (d['elements'] as List?) ?? [];
-      StopInfo? bus, train;
-      double bb = 1e9, tb = 1e9;
+      StopInfo? bus, train, ferry;
+      double bb = 1e9, tb = 1e9, fb = 1e9;
       final dist = const Distance();
       for (final e in els) {
         if (e['lat'] == null) continue;
@@ -212,17 +243,20 @@ class Services {
         final name = tags['name'] ?? tags['name:en'];
         if (name == null) continue;
         final isTrain = tags['railway'] == 'station' || tags['railway'] == 'halt';
+        final isFerry = tags['amenity'] == 'ferry_terminal' || tags['ferry'] == 'yes';
         final pos = LatLng((e['lat'] as num).toDouble(), (e['lon'] as num).toDouble());
         final dd = dist.as(LengthUnit.Kilometer, p, pos);
-        if (isTrain) {
+        if (isFerry) {
+          if (dd < fb) { fb = dd; ferry = StopInfo(name, 'ferry', pos); }
+        } else if (isTrain) {
           if (dd < tb) { tb = dd; train = StopInfo(name, 'train', pos); }
         } else {
           if (dd < bb) { bb = dd; bus = StopInfo(name, 'bus', pos); }
         }
       }
-      return (bus: bus, train: train);
+      return (bus: bus, train: train, ferry: ferry);
     } catch (_) {
-      return (bus: null, train: null);
+      return (bus: null, train: null, ferry: null);
     }
   }
 

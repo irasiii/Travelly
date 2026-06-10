@@ -81,8 +81,12 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
     final from = app.userLoc ?? kBNE;
     final to = app.destLoc!;
     final type = r.transitType ?? 'bus';
-    StopInfo? board = type == 'train' ? app.boardTrain : app.boardBus;
-    StopInfo? alight = type == 'train' ? app.destTrain : app.destBus;
+    StopInfo? board = type == 'train'
+        ? app.boardTrain
+        : (type == 'ferry' ? app.boardFerry : app.boardBus);
+    StopInfo? alight = type == 'train'
+        ? app.destTrain
+        : (type == 'ferry' ? app.destFerry : app.destBus);
     board ??= await Services.nearestStop(from);
     alight ??= await Services.nearestStop(to);
     final dist = const Distance();
@@ -97,9 +101,11 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
         '${hhmm(cur)} · ${w1.toStringAsFixed(1)} km · ${(w1sec / 60).round()} min'));
     cur = cur.add(Duration(seconds: w1sec.round()));
     final boardTime = hhmm(cur);
-    final isTrain = type == 'train';
-    steps.add(_Step(isTrain ? '🚆' : '🚌', isTrain ? brand : const Color(0xFFF59E0B),
-        '${isTrain ? 'Train' : 'Bus'}  ${board?.name ?? 'Board'} → ${alight?.name ?? 'Alight'}',
+    final rideIcon = type == 'train' ? '🚆' : (type == 'ferry' ? '⛴️' : '🚌');
+    final rideColor = type == 'train' ? brand : (type == 'ferry' ? const Color(0xFF0EA5E9) : const Color(0xFFF59E0B));
+    final rideLabel = type == 'train' ? 'Train' : (type == 'ferry' ? 'Ferry' : 'Bus');
+    steps.add(_Step(rideIcon, rideColor,
+        '$rideLabel  ${board?.name ?? 'Board'} → ${alight?.name ?? 'Alight'}',
         'Board $boardTime · ${(rideSec / 60).round()} min ride'));
     cur = cur.add(Duration(seconds: rideSec.round()));
     steps.add(_Step('🚶', const Color(0xFF16A34A), 'Walk to ${app.destName}',
