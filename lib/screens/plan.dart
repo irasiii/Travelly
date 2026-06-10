@@ -5,6 +5,7 @@ import '../main.dart';
 import '../models.dart';
 import '../services.dart';
 import 'routes.dart';
+import 'extras.dart';
 
 class PlanScreen extends StatefulWidget {
   const PlanScreen({super.key});
@@ -116,7 +117,8 @@ class _PlanScreenState extends State<PlanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Plan Journey'), backgroundColor: Colors.white),
+      appBar: AppBar(title: const Text('Plan Journey'), backgroundColor: Colors.white, actions: menuActions(context)),
+      drawer: const AppDrawer(),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

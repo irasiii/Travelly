@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import '../main.dart';
 import '../models.dart';
 import 'details.dart';
+import 'extras.dart';
 
 class RoutesScreen extends StatelessWidget {
   const RoutesScreen({super.key});
@@ -17,7 +18,8 @@ class RoutesScreen extends StatelessWidget {
     final fastest = app.routes.isNotEmpty ? app.routes.first.points : <LatLng>[];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Routes'), backgroundColor: Colors.white),
+      appBar: AppBar(title: const Text('My Routes'), backgroundColor: Colors.white, actions: menuActions(context)),
+      drawer: const AppDrawer(),
       body: Column(
         children: [
           SizedBox(

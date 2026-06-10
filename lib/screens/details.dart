@@ -8,6 +8,7 @@ import '../main.dart';
 import '../db.dart';
 import '../models.dart';
 import '../services.dart';
+import 'extras.dart';
 
 class _Step {
   final String icon, title, detail;
@@ -123,7 +124,8 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
     final t = app.timesFor(r);
     final pts = r.points;
     return Scaffold(
-      appBar: AppBar(title: const Text('Trip Details'), backgroundColor: Colors.white),
+      appBar: AppBar(title: const Text('Trip Details'), backgroundColor: Colors.white, actions: menuActions(context)),
+      drawer: const AppDrawer(),
       body: Column(children: [
         SizedBox(
           height: MediaQuery.of(context).size.height * 0.28,
