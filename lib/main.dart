@@ -70,7 +70,7 @@ class AppState extends ChangeNotifier {
       userLabel = await Services.reverseGeocode(p);
       final w = await Services.weather(p);
       if (w != null) {
-        wxTemp = '${(w['temperature_2m'] as num).round()}°';
+        wxTemp = '${(w['temperature_2m'] as num).round()}°C';
         wxIcon = wxEmoji((w['weather_code'] as num?)?.toInt());
       }
       notifyListeners();
@@ -78,7 +78,7 @@ class AppState extends ChangeNotifier {
       userLabel = 'Enable GPS';
       final w = await Services.weather(kBNE);
       if (w != null) {
-        wxTemp = '${(w['temperature_2m'] as num).round()}°';
+        wxTemp = '${(w['temperature_2m'] as num).round()}°C';
         wxIcon = wxEmoji((w['weather_code'] as num?)?.toInt());
       }
       notifyListeners();
@@ -217,18 +217,36 @@ String fmtDateTime(DateTime d) {
 }
 
 /// ---------------- Home ----------------
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  final MapController _map = MapController();
+  bool _centered = false;
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    // recenter on the user the first time GPS resolves
+    if (app.userLoc != null && !_centered) {
+      _centered = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        try {
+          _map.move(app.userLoc!, 15);
+        } catch (_) {}
+      });
+    }
     final center = app.userLoc ?? kBNE;
     return Scaffold(
       drawer: const AppDrawer(),
       body: Stack(
         children: [
           FlutterMap(
-            options: MapOptions(initialCenter: center, initialZoom: 14),
+            mapController: _map,
+            options: MapOptions(initialCenter: center, initialZoom: 13),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -236,16 +254,11 @@ class HomeScreen extends StatelessWidget {
               ),
               if (app.userLoc != null)
                 MarkerLayer(markers: [
-                  Marker(
-                    point: app.userLoc!,
-                    width: 22,
-                    height: 22,
-                    child: const _UserDot(),
-                  )
+                  Marker(point: app.userLoc!, width: 24, height: 24, child: const _UserDot()),
                 ]),
             ],
           ),
-          // Top HUD
+          // Top bar: menu (left) + weather & place chips (right, stacked)
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
@@ -259,7 +272,16 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  _InfoCard(icon: app.wxIcon, temp: app.wxTemp ?? '—', place: app.userLabel),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      _WeatherChip(icon: app.wxIcon, temp: app.wxTemp),
+                      const SizedBox(height: 6),
+                      if (app.userLabel.isNotEmpty &&
+                          app.userLabel != 'Locating…')
+                        _PlaceChip(place: app.userLabel),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -268,7 +290,17 @@ class HomeScreen extends StatelessWidget {
           Positioned(
             right: 14,
             bottom: MediaQuery.of(context).size.height * 0.34,
-            child: _FabIcon(icon: Icons.my_location, onTap: () => app.locate()),
+            child: _FabIcon(
+              icon: Icons.my_location,
+              onTap: () async {
+                await app.locate();
+                if (app.userLoc != null) {
+                  try {
+                    _map.move(app.userLoc!, 16);
+                  } catch (_) {}
+                }
+              },
+            ),
           ),
           // Bottom sheet
           Align(
@@ -286,7 +318,9 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   Center(
                     child: Container(
-                      width: 42, height: 5, margin: const EdgeInsets.only(bottom: 14),
+                      width: 42,
+                      height: 5,
+                      margin: const EdgeInsets.only(bottom: 14),
                       decoration: BoxDecoration(
                         color: const Color(0xFFD7D9E2),
                         borderRadius: BorderRadius.circular(3),
@@ -339,41 +373,47 @@ class _UserDot extends StatelessWidget {
       );
 }
 
-class _InfoCard extends StatelessWidget {
-  final String icon, temp, place;
-  const _InfoCard({required this.icon, required this.temp, required this.place});
+class _WeatherChip extends StatelessWidget {
+  final String icon;
+  final String? temp;
+  const _WeatherChip({required this.icon, required this.temp});
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(.96),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(icon, style: const TextStyle(fontSize: 16)),
-          const SizedBox(width: 6),
-          Text(temp, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-          Container(
-              width: 1, height: 22,
-              margin: const EdgeInsets.symmetric(horizontal: 10),
-              color: const Color(0xFFE7E8EE)),
-          const Icon(Icons.place, size: 15, color: brand),
-          const SizedBox(width: 3),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 120),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Near',
-                    style: TextStyle(fontSize: 10, color: Color(0xFF6B7280), height: 1)),
-                Text(place,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, height: 1.15)),
-              ],
-            ),
+          Text(icon, style: const TextStyle(fontSize: 18)),
+          const SizedBox(width: 7),
+          Text(temp ?? '—',
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+        ]),
+      );
+}
+
+class _PlaceChip extends StatelessWidget {
+  final String place;
+  const _PlaceChip({required this.place});
+  @override
+  Widget build(BuildContext context) => Container(
+        constraints: const BoxConstraints(maxWidth: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(.96),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.place, size: 14, color: brand),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(place,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
           ),
         ]),
       );
