@@ -80,18 +80,33 @@ class Services {
   }
 
   static Future<String> reverseGeocode(LatLng p) async {
+    // Photon reverse
     try {
       final r = await http
           .get(Uri.parse('$_photon/reverse?lat=${p.latitude}&lon=${p.longitude}&lang=en'))
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 12));
       final d = jsonDecode(r.body);
-      final pr = (d['features'] as List).isNotEmpty
-          ? d['features'][0]['properties']
-          : {};
-      return pr['district'] ?? pr['city'] ?? pr['street'] ?? 'You';
-    } catch (_) {
-      return 'You';
-    }
+      final feats = (d['features'] as List?) ?? [];
+      if (feats.isNotEmpty) {
+        final pr = feats[0]['properties'] ?? {};
+        final label = pr['district'] ?? pr['locality'] ?? pr['suburb'] ??
+            pr['city'] ?? pr['name'] ?? pr['street'];
+        if (label != null) return label.toString();
+      }
+    } catch (_) {}
+    // Nominatim reverse fallback (good suburb names)
+    try {
+      final r = await http.get(
+        Uri.parse('https://nominatim.openstreetmap.org/reverse?lat=${p.latitude}&lon=${p.longitude}&format=json&zoom=14'),
+        headers: {'User-Agent': 'TravellyApp/1.0 (QUT student project)'},
+      ).timeout(const Duration(seconds: 12));
+      final d = jsonDecode(r.body);
+      final a = d['address'] ?? {};
+      final label = a['suburb'] ?? a['neighbourhood'] ?? a['city_district'] ??
+          a['town'] ?? a['city'] ?? a['village'] ?? a['municipality'];
+      if (label != null) return label.toString();
+    } catch (_) {}
+    return 'your area';
   }
 
   static String _mainLabel(Map p) {

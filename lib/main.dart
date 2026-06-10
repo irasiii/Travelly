@@ -250,6 +250,7 @@ class HomeScreen extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Builder(
                     builder: (ctx) => _FabIcon(
@@ -258,9 +259,7 @@ class HomeScreen extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  _Pill(top: "You're near", bottom: app.userLabel, lead: '📍'),
-                  const SizedBox(width: 8),
-                  _Pill(top: 'Weather', bottom: app.wxTemp ?? '—', lead: app.wxIcon),
+                  _InfoCard(icon: app.wxIcon, temp: app.wxTemp ?? '—', place: app.userLabel),
                 ],
               ),
             ),
@@ -340,23 +339,42 @@ class _UserDot extends StatelessWidget {
       );
 }
 
-class _Pill extends StatelessWidget {
-  final String top, bottom, lead;
-  const _Pill({required this.top, required this.bottom, required this.lead});
+class _InfoCard extends StatelessWidget {
+  final String icon, temp, place;
+  const _InfoCard({required this.icon, required this.temp, required this.place});
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(.95),
+          color: Colors.white.withOpacity(.96),
           borderRadius: BorderRadius.circular(16),
           boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(lead), const SizedBox(width: 6),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(top, style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280), fontWeight: FontWeight.w600)),
-            Text(bottom, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-          ]),
+          Text(icon, style: const TextStyle(fontSize: 16)),
+          const SizedBox(width: 6),
+          Text(temp, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          Container(
+              width: 1, height: 22,
+              margin: const EdgeInsets.symmetric(horizontal: 10),
+              color: const Color(0xFFE7E8EE)),
+          const Icon(Icons.place, size: 15, color: brand),
+          const SizedBox(width: 3),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 120),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Near',
+                    style: TextStyle(fontSize: 10, color: Color(0xFF6B7280), height: 1)),
+                Text(place,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, height: 1.15)),
+              ],
+            ),
+          ),
         ]),
       );
 }
