@@ -51,35 +51,24 @@ class TripsScreen extends StatelessWidget {
   const TripsScreen({super.key});
   @override
   Widget build(BuildContext context) {
-    final trips = [
-      ['🚢', 'Ferry', '11/5/2026 · 81.57 km · 1 h 25 m', const Color(0xFF1769FF)],
-      ['🚌', 'Bus + Walk', '09/5/2026 · 8.41 km · 24 m', const Color(0xFFF59E0B)],
-      ['🚲', 'Cycle', '07/5/2026 · 12.3 km · 41 m', const Color(0xFF14B8A6)],
-    ];
     return Scaffold(
-      appBar: AppBar(title: const Text('Your Trips'), backgroundColor: Colors.white),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: trips.map((t) => _tile(t[0] as String, t[2] as Color, t[1] as String, t[3] as String)).toList(),
+      appBar: AppBar(title: const Text('My Trips'), backgroundColor: Colors.white),
+      body: const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('🧭', style: TextStyle(fontSize: 48)),
+            SizedBox(height: 10),
+            Text('No trip history yet',
+                style: TextStyle(color: _muted, fontWeight: FontWeight.w600, fontSize: 15)),
+            SizedBox(height: 4),
+            Text('Your completed trips will appear here.',
+                style: TextStyle(color: _muted, fontSize: 12)),
+          ],
+        ),
       ),
     );
   }
-
-  Widget _tile(String ic, Color c, String title, String sub) => Container(
-        margin: const EdgeInsets.only(bottom: 11),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-        child: Row(children: [
-          Container(width: 42, height: 42, alignment: Alignment.center,
-              decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(12)),
-              child: Text(ic, style: const TextStyle(fontSize: 20))),
-          const SizedBox(width: 13),
-          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-            Text(sub, style: const TextStyle(color: _muted, fontSize: 12)),
-          ])),
-        ]),
-      );
 }
 
 class SavedScreen extends StatelessWidget {
