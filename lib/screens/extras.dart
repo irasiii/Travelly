@@ -13,9 +13,9 @@ class AppDrawer extends StatelessWidget {
           leading: Icon(ic, color: color ?? _muted),
           title: Text(label, style: TextStyle(color: color ?? _ink, fontSize: 15)),
           onTap: () {
-            Navigator.pop(context);
+            Scaffold.of(context).closeDrawer();
             if (screen != null) {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
             } else {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Signed out')));
             }
