@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:intl/intl.dart';
 import '../main.dart';
+import '../db.dart';
 import '../models.dart';
 import '../services.dart';
 
@@ -462,7 +463,21 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
                   style: TextStyle(color: Color(0xFF6B7280), fontSize: 11)),
               const SizedBox(height: 12),
               FilledButton(
-                onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
+                onPressed: () async {
+                  await Db.addTrip({
+                    'mode': r.mode,
+                    'icon': r.icon,
+                    'km': double.parse(dist.toStringAsFixed(2)),
+                    'durSec': sec,
+                    'kcal': kcal.round(),
+                    'co2': double.parse(co2.toStringAsFixed(2)),
+                    'date': DateTime.now().toIso8601String(),
+                  });
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Trip saved to your history 🌱')));
+                  Navigator.popUntil(context, (route) => route.isFirst);
+                },
                 style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE5343D), minimumSize: const Size.fromHeight(50)),
                 child: const Text('Finish Trip', style: TextStyle(fontWeight: FontWeight.w700)),
               ),

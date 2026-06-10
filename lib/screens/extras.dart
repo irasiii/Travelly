@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../main.dart';
+import '../db.dart';
+import 'package:intl/intl.dart';
 
 const _ink = Color(0xFF1A1C22);
 const _muted = Color(0xFF6B7280);
@@ -9,6 +11,8 @@ class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
   @override
   Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    final email = (Db.currentUser?['email'] as String?) ?? '';
     Widget item(IconData ic, String label, Widget? screen, {Color? color}) => ListTile(
           leading: Icon(ic, color: color ?? _muted),
           title: Text(label, style: TextStyle(color: color ?? _ink, fontSize: 15)),
@@ -17,7 +21,8 @@ class AppDrawer extends StatelessWidget {
             if (screen != null) {
               Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
             } else {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Signed out')));
+              Db.logout();
+              context.read<AppState>().refreshAuth();
             }
           },
         );
@@ -27,11 +32,11 @@ class AppDrawer extends StatelessWidget {
           width: double.infinity,
           color: brand,
           padding: const EdgeInsets.fromLTRB(20, 60, 20, 22),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
-            CircleAvatar(radius: 24, backgroundColor: Colors.white, child: Text('T', style: TextStyle(color: brand, fontWeight: FontWeight.w700, fontSize: 22))),
-            SizedBox(height: 10),
-            Text('Travelly User', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 17)),
-            Text('Plan your sustainable route', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            CircleAvatar(radius: 24, backgroundColor: Colors.white, child: Text(app.userName.isNotEmpty ? app.userName[0].toUpperCase() : 'T', style: const TextStyle(color: brand, fontWeight: FontWeight.w700, fontSize: 22))),
+            const SizedBox(height: 10),
+            Text(app.userName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 17)),
+            Text(email.isNotEmpty ? email : 'Plan your sustainable route', style: const TextStyle(color: Colors.white70, fontSize: 12)),
           ]),
         ),
         item(Icons.explore, 'My Trips', const TripsScreen()),
@@ -51,22 +56,46 @@ class TripsScreen extends StatelessWidget {
   const TripsScreen({super.key});
   @override
   Widget build(BuildContext context) {
+    final trips = Db.tripsForCurrent();
     return Scaffold(
       appBar: AppBar(title: const Text('My Trips'), backgroundColor: Colors.white),
-      body: const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('🧭', style: TextStyle(fontSize: 48)),
-            SizedBox(height: 10),
-            Text('No trip history yet',
-                style: TextStyle(color: _muted, fontWeight: FontWeight.w600, fontSize: 15)),
-            SizedBox(height: 4),
-            Text('Your completed trips will appear here.',
-                style: TextStyle(color: _muted, fontSize: 12)),
-          ],
-        ),
-      ),
+      body: trips.isEmpty
+          ? const Center(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Text('🧭', style: TextStyle(fontSize: 48)),
+                SizedBox(height: 10),
+                Text('No trip history yet',
+                    style: TextStyle(color: _muted, fontWeight: FontWeight.w600, fontSize: 15)),
+                SizedBox(height: 4),
+                Text('Your completed trips will appear here.',
+                    style: TextStyle(color: _muted, fontSize: 12)),
+              ]),
+            )
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: trips.map((t) {
+                final date = DateTime.tryParse((t['date'] ?? '').toString()) ?? DateTime.now();
+                final km = (t['km'] ?? 0).toDouble();
+                final co2 = (t['co2'] ?? 0).toDouble();
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 11),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                  child: Row(children: [
+                    Container(width: 42, height: 42, alignment: Alignment.center,
+                        decoration: BoxDecoration(color: brand, borderRadius: BorderRadius.circular(12)),
+                        child: Text('${t['icon'] ?? '🚶'}', style: const TextStyle(fontSize: 20))),
+                    const SizedBox(width: 13),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('${t['mode'] ?? 'Trip'} · ${km.toStringAsFixed(1)} km',
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                      Text('${DateFormat('d MMM, h:mm a').format(date)} · ${t['kcal'] ?? 0} kcal · ${co2.toStringAsFixed(2)} kg CO₂',
+                          style: const TextStyle(color: _muted, fontSize: 12)),
+                    ])),
+                  ]),
+                );
+              }).toList(),
+            ),
     );
   }
 }
@@ -215,31 +244,60 @@ class ProfileScreen extends StatelessWidget {
         );
     Widget title(String t) => Padding(padding: const EdgeInsets.fromLTRB(2, 18, 2, 4),
         child: Text(t, style: const TextStyle(fontWeight: FontWeight.w800, color: _muted, fontSize: 13, letterSpacing: .5)));
+    final user = Db.currentUser;
+    final name = (user?['name'] as String?) ?? 'Traveller';
+    final email = (user?['email'] as String?) ?? '';
+    final stats = Db.statsForCurrent();
     return Scaffold(
       appBar: AppBar(title: const Text('Profile'), backgroundColor: Colors.white),
       body: ListView(padding: const EdgeInsets.all(16), children: [
-        Row(children: const [
-          CircleAvatar(radius: 31, backgroundColor: brand, child: Text('T', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w700))),
-          SizedBox(width: 14),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Travelly User', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
-            Text('Plan your sustainable route', style: TextStyle(color: _muted, fontSize: 12)),
-          ]),
+        Row(children: [
+          CircleAvatar(radius: 31, backgroundColor: brand, child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'T', style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w700))),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+            Text(email.isNotEmpty ? email : 'Plan your sustainable route', style: const TextStyle(color: _muted, fontSize: 12)),
+          ])),
         ]),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceAround, children: [
+            _stat('${stats['count']!.toInt()}', 'Trips'),
+            _stat('${stats['km']!.toStringAsFixed(1)}', 'km'),
+            _stat('${stats['kcal']!.toInt()}', 'kcal'),
+            _stat('${stats['co2']!.toStringAsFixed(1)}', 'kg CO₂'),
+          ]),
+        ),
         title('ACCOUNT INFORMATION'),
-        row(Icons.email_outlined, 'Email', 'ibrahim.rasras@connect.qut.edu.au'),
-        row(Icons.badge_outlined, 'User ID', '19be94e8-e0a1-70bb-3159'),
-        row(Icons.person_outline, 'Name', 'Not set'),
-        row(Icons.phone_outlined, 'Phone', 'Not set'),
+        row(Icons.email_outlined, 'Email', email.isNotEmpty ? email : '—'),
+        row(Icons.person_outline, 'Name', name),
         title('PREFERENCES'),
         row(Icons.directions_walk, 'Preferred Transport Mode', 'Walking'),
         row(Icons.notifications_active_outlined, 'Notifications', 'Enabled', vc: const Color(0xFF16A34A)),
         row(Icons.straighten, 'Units', 'Metric (km)'),
         title('PRIVACY & CONSENT'),
         row(Icons.shield_outlined, 'Location tracking', 'Always allow', vc: const Color(0xFF16A34A)),
+        const SizedBox(height: 18),
+        OutlinedButton.icon(
+          onPressed: () {
+            Db.logout();
+            context.read<AppState>().refreshAuth();
+            Navigator.popUntil(context, (r) => r.isFirst);
+          },
+          icon: const Icon(Icons.logout, color: Color(0xFFE5343D)),
+          label: const Text('Sign Out', style: TextStyle(color: Color(0xFFE5343D))),
+          style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(50)),
+        ),
       ]),
     );
   }
+
+  Widget _stat(String v, String l) => Column(children: [
+        Text(v, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        Text(l, style: const TextStyle(fontSize: 11, color: _muted)),
+      ]);
 }
 
 class HelpScreen extends StatelessWidget {
@@ -255,7 +313,8 @@ class HelpScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Help Centre'), backgroundColor: Colors.white),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         ...faqs.map((f) => Card(
-              color: Colors.white, elevation: 0,
+              color: Colors.white,
+              elevation: 0,
               margin: const EdgeInsets.only(bottom: 10),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               child: ExpansionTile(

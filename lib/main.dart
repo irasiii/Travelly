@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -9,13 +10,19 @@ import 'models.dart';
 import 'services.dart';
 import 'screens/plan.dart';
 import 'screens/extras.dart';
+import 'screens/auth.dart';
+import 'db.dart';
 
 const brand = Color(0xFF1769FF);
 final LatLng kBNE = LatLng(-27.4705, 153.0260);
 
-void main() => runApp(
-      ChangeNotifierProvider(create: (_) => AppState()..init(), child: const TravellyApp()),
-    );
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Db.init();
+  runApp(
+    ChangeNotifierProvider(create: (_) => AppState()..init(), child: const TravellyApp()),
+  );
+}
 
 class TravellyApp extends StatelessWidget {
   const TravellyApp({super.key});
@@ -30,13 +37,20 @@ class TravellyApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFFF3F4F8),
         fontFamily: 'Roboto',
       ),
-      home: const HomeScreen(),
+      home: const AuthGate(),
     );
   }
 }
 
 /// ---------------- App state ----------------
 class AppState extends ChangeNotifier {
+  bool loggedIn = Db.isLoggedIn;
+  String get userName => Db.currentName;
+  void refreshAuth() {
+    loggedIn = Db.isLoggedIn;
+    notifyListeners();
+  }
+
   LatLng? userLoc;
   String userLabel = 'Locating…';
   String? wxTemp;
@@ -217,6 +231,44 @@ String fmtDateTime(DateTime d) {
 }
 
 /// ---------------- Home ----------------
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final app = context.watch<AppState>();
+    return app.loggedIn ? const HomeScreen() : const LoginScreen();
+  }
+}
+
+class ClockText extends StatefulWidget {
+  const ClockText({super.key});
+  @override
+  State<ClockText> createState() => _ClockTextState();
+}
+
+class _ClockTextState extends State<ClockText> {
+  Timer? _t;
+  @override
+  void initState() {
+    super.initState();
+    _t = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _t?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Text(
+        DateFormat('h:mm:ss a').format(DateTime.now()),
+        style: const TextStyle(fontWeight: FontWeight.w700, color: brand, fontSize: 13),
+      );
+}
+
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -327,10 +379,18 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   ),
-                  const Text('Where to Today?',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text('Hi ${app.userName.split(' ').first} 👋',
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                      ),
+                      const ClockText(),
+                    ],
+                  ),
                   const SizedBox(height: 3),
-                  const Text('Plan a sustainable route and earn rewards.',
+                  const Text('Where to today? Plan a sustainable route.',
                       style: TextStyle(color: Color(0xFF6B7280), fontSize: 13)),
                   const SizedBox(height: 14),
                   InkWell(
