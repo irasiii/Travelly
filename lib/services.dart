@@ -222,10 +222,10 @@ class Services {
   /// Nearest named bus stop or train station (OpenStreetMap Overpass).
   static Future<StopInfo?> nearestStop(LatLng p) async {
     final q = '[out:json][timeout:20];('
-        'node(around:1200,${p.latitude},${p.longitude})[highway=bus_stop];'
-        'node(around:1200,${p.latitude},${p.longitude})[public_transport=platform];'
-        'node(around:2200,${p.latitude},${p.longitude})[railway=station];'
-        'node(around:2200,${p.latitude},${p.longitude})[railway=halt];'
+        'node(around:2500,${p.latitude},${p.longitude})[highway=bus_stop];'
+        'node(around:2500,${p.latitude},${p.longitude})[public_transport=platform];'
+        'node(around:5000,${p.latitude},${p.longitude})[railway=station];'
+        'node(around:5000,${p.latitude},${p.longitude})[railway=halt];'
         ');out body 50;';
     try {
       final r = await http
@@ -259,12 +259,12 @@ class Services {
   /// Nearest named bus stop, train station AND ferry terminal (OpenStreetMap).
   static Future<({StopInfo? bus, StopInfo? train, StopInfo? ferry})> nearestByType(LatLng p) async {
     final q = '[out:json][timeout:20];('
-        'node(around:1200,${p.latitude},${p.longitude})[highway=bus_stop];'
-        'node(around:1200,${p.latitude},${p.longitude})[public_transport=platform];'
-        'node(around:2500,${p.latitude},${p.longitude})[railway=station];'
-        'node(around:2500,${p.latitude},${p.longitude})[railway=halt];'
-        'node(around:3000,${p.latitude},${p.longitude})[amenity=ferry_terminal];'
-        'node(around:3000,${p.latitude},${p.longitude})[ferry=yes];'
+        'node(around:2500,${p.latitude},${p.longitude})[highway=bus_stop];'
+        'node(around:2500,${p.latitude},${p.longitude})[public_transport=platform];'
+        'node(around:5000,${p.latitude},${p.longitude})[railway=station];'
+        'node(around:5000,${p.latitude},${p.longitude})[railway=halt];'
+        'node(around:4000,${p.latitude},${p.longitude})[amenity=ferry_terminal];'
+        'node(around:4000,${p.latitude},${p.longitude})[ferry=yes];'
         ');out body 80;';
     try {
       final r = await http

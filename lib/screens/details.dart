@@ -97,7 +97,9 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
     final w1sec = w1 / 5 * 3600, w2sec = w2 / 5 * 3600;
     final rideSec = (r.durSec - w1sec - w2sec).clamp(120, 1e9).toDouble();
     final steps = <_Step>[];
-    steps.add(_Step('🚶', const Color(0xFF16A34A), 'Walk to ${board?.name ?? 'nearest stop'}',
+    final acc1 = w1 > 1.2;
+    steps.add(_Step(acc1 ? '🚌' : '🚶', acc1 ? const Color(0xFFF59E0B) : const Color(0xFF16A34A),
+        '${acc1 ? 'Bus or walk to' : 'Walk to'} ${board?.name ?? 'nearest stop'}',
         '${hhmm(cur)} · ${w1.toStringAsFixed(1)} km · ${(w1sec / 60).round()} min'));
     cur = cur.add(Duration(seconds: w1sec.round()));
     final boardTime = hhmm(cur);
@@ -108,7 +110,9 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
         '$rideLabel  ${board?.name ?? 'Board'} → ${alight?.name ?? 'Alight'}',
         'Board $boardTime · ${(rideSec / 60).round()} min ride'));
     cur = cur.add(Duration(seconds: rideSec.round()));
-    steps.add(_Step('🚶', const Color(0xFF16A34A), 'Walk to ${app.destName}',
+    final acc2 = w2 > 1.2;
+    steps.add(_Step(acc2 ? '🚌' : '🚶', acc2 ? const Color(0xFFF59E0B) : const Color(0xFF16A34A),
+        '${acc2 ? 'Bus or walk to' : 'Walk to'} ${app.destName}',
         '${hhmm(cur)} · ${w2.toStringAsFixed(1)} km · ${(w2sec / 60).round()} min'));
     cur = cur.add(Duration(seconds: w2sec.round()));
     steps.add(_Step('🏁', const Color(0xFFE5343D), 'Arrive ${app.destName}', hhmm(cur)));
