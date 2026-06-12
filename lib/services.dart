@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
@@ -42,14 +43,35 @@ class Services {
 
   static Future<List<Suggestion>> geocode(String q, {LatLng? near}) async {
     if (q.trim().length < 2) return [];
+    // Run a region-restricted venue search (Nominatim) and a street search (Photon)
+    // together, then keep only what is near the user, nearest first.
+    final futures = <Future<List<Suggestion>>>[_photonSuggest(q, near)];
+    if (near != null) futures.add(_nominatimSuggest(q, near: near, bounded: true));
+    final lists = await Future.wait(futures);
+
+    final merged = <Suggestion>[];
+    final seen = <String>{};
+    for (final l in lists) {
+      for (final s in l) {
+        final key = '${s.pos.latitude.toStringAsFixed(4)},${s.pos.longitude.toStringAsFixed(4)}';
+        if (seen.add(key)) merged.add(s);
+      }
+    }
+    if (near != null) {
+      return merged.where((s) => _distM(near, s.pos) <= _maxNearMeters).toList()
+        ..sort((a, b) => _distM(near, a.pos).compareTo(_distM(near, b.pos)));
+    }
+    return merged;
+  }
+
+  static Future<List<Suggestion>> _photonSuggest(String q, LatLng? near) async {
     final bias = near != null ? '&lat=${near.latitude}&lon=${near.longitude}&location_bias_scale=0.6' : '';
     final url = '$_photon/api/?q=${Uri.encodeComponent(q)}&limit=15&lang=en$bias';
-    List<Suggestion> photon = [];
     try {
       final r = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
       final data = jsonDecode(r.body);
       final feats = (data['features'] as List?) ?? [];
-      photon = feats.map<Suggestion>((f) {
+      return feats.map<Suggestion>((f) {
         final p = f['properties'] ?? {};
         final c = f['geometry']['coordinates'];
         return Suggestion(
@@ -59,18 +81,9 @@ class Services {
           (p['osm_value'] ?? '').toString(),
         );
       }).toList();
-    } catch (_) {}
-
-    if (near != null) {
-      // Keep only results near the user, nearest first (hide far/global matches).
-      final nearby = photon.where((s) => _distM(near, s.pos) <= _maxNearMeters).toList()
-        ..sort((a, b) => _distM(near, a.pos).compareTo(_distM(near, b.pos)));
-      if (nearby.isNotEmpty) return nearby;
-      // Nothing near from Photon -> ask Nominatim restricted to the user's region.
-      return _nominatimSuggest(q, near: near, bounded: true);
+    } catch (_) {
+      return [];
     }
-    if (photon.isNotEmpty) return photon;
-    return _nominatimSuggest(q, near: near);
   }
 
   static double _distM(LatLng a, LatLng b) => const Distance().as(LengthUnit.Meter, a, b);
