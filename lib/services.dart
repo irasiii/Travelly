@@ -38,15 +38,18 @@ class Services {
       );
 
   /// Address autocomplete (street-level), biased to [near].
+  static const double _maxNearMeters = 200000; // 200 km radius for "near me"
+
   static Future<List<Suggestion>> geocode(String q, {LatLng? near}) async {
     if (q.trim().length < 2) return [];
-    final bias = near != null ? '&lat=${near.latitude}&lon=${near.longitude}&location_bias_scale=0.5' : '';
-    final url = '$_photon/api/?q=${Uri.encodeComponent(q)}&limit=10&lang=en$bias';
+    final bias = near != null ? '&lat=${near.latitude}&lon=${near.longitude}&location_bias_scale=0.6' : '';
+    final url = '$_photon/api/?q=${Uri.encodeComponent(q)}&limit=15&lang=en$bias';
+    List<Suggestion> photon = [];
     try {
       final r = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
       final data = jsonDecode(r.body);
       final feats = (data['features'] as List?) ?? [];
-      final out = feats.map<Suggestion>((f) {
+      photon = feats.map<Suggestion>((f) {
         final p = f['properties'] ?? {};
         final c = f['geometry']['coordinates'];
         return Suggestion(
@@ -56,27 +59,33 @@ class Services {
           (p['osm_value'] ?? '').toString(),
         );
       }).toList();
-      if (near != null) {
-        out.sort((a, b) => _distM(near, a.pos).compareTo(_distM(near, b.pos)));
-      }
-      if (out.isNotEmpty) return out;
     } catch (_) {}
-    // Fallback: Nominatim catches towns/cities/regions Photon may miss.
+
+    if (near != null) {
+      // Keep only results near the user, nearest first (hide far/global matches).
+      final nearby = photon.where((s) => _distM(near, s.pos) <= _maxNearMeters).toList()
+        ..sort((a, b) => _distM(near, a.pos).compareTo(_distM(near, b.pos)));
+      if (nearby.isNotEmpty) return nearby;
+      // Nothing near from Photon -> ask Nominatim restricted to the user's region.
+      return _nominatimSuggest(q, near: near, bounded: true);
+    }
+    if (photon.isNotEmpty) return photon;
     return _nominatimSuggest(q, near: near);
   }
 
   static double _distM(LatLng a, LatLng b) => const Distance().as(LengthUnit.Meter, a, b);
 
-  static Future<List<Suggestion>> _nominatimSuggest(String q, {LatLng? near}) async {
+  static Future<List<Suggestion>> _nominatimSuggest(String q, {LatLng? near, bool bounded = false}) async {
     if (q.trim().length < 3) return [];
     try {
       String box = '';
       if (near != null) {
         final lat = near.latitude, lon = near.longitude;
-        box = '&viewbox=${lon - 1.5},${lat + 1.5},${lon + 1.5},${lat - 1.5}&bounded=0';
+        final deg = bounded ? 1.2 : 1.5;
+        box = '&viewbox=${lon - deg},${lat + deg},${lon + deg},${lat - deg}&bounded=${bounded ? 1 : 0}';
       }
       final url =
-          'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(q)}&format=jsonv2&accept-language=en&limit=6$box';
+          'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(q)}&format=jsonv2&accept-language=en&limit=10$box';
       final r = await http.get(Uri.parse(url),
           headers: {'User-Agent': 'TravellyApp/1.0 (QUT student project)', 'Accept-Language': 'en'}).timeout(const Duration(seconds: 12));
       final d = jsonDecode(r.body);
@@ -96,7 +105,9 @@ class Services {
         );
       }).toList();
       if (near != null) {
-        list.sort((a, b) => _distM(near, a.pos).compareTo(_distM(near, b.pos)));
+        final near2 = list.where((s) => _distM(near, s.pos) <= _maxNearMeters).toList()
+          ..sort((a, b) => _distM(near, a.pos).compareTo(_distM(near, b.pos)));
+        return near2;
       }
       return list;
     } catch (_) {
