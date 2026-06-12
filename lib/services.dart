@@ -59,16 +59,21 @@ class Services {
       if (out.isNotEmpty) return out;
     } catch (_) {}
     // Fallback: Nominatim catches towns/cities/regions Photon may miss.
-    return _nominatimSuggest(q);
+    return _nominatimSuggest(q, near: near);
   }
 
-  static Future<List<Suggestion>> _nominatimSuggest(String q) async {
+  static Future<List<Suggestion>> _nominatimSuggest(String q, {LatLng? near}) async {
     if (q.trim().length < 3) return [];
     try {
+      String box = '';
+      if (near != null) {
+        final lat = near.latitude, lon = near.longitude;
+        box = '&viewbox=${lon - 1.5},${lat + 1.5},${lon + 1.5},${lat - 1.5}&bounded=0';
+      }
       final url =
-          'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(q)}&format=jsonv2&limit=6';
+          'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(q)}&format=jsonv2&accept-language=en&limit=6$box';
       final r = await http.get(Uri.parse(url),
-          headers: {'User-Agent': 'TravellyApp/1.0 (QUT student project)'}).timeout(const Duration(seconds: 12));
+          headers: {'User-Agent': 'TravellyApp/1.0 (QUT student project)', 'Accept-Language': 'en'}).timeout(const Duration(seconds: 12));
       final d = jsonDecode(r.body);
       if (d is! List) return [];
       return d.map<Suggestion>((e) {
@@ -97,9 +102,9 @@ class Services {
     // Fallback to Nominatim - good for towns/cities/regions
     try {
       final url =
-          'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(q)}&format=json&limit=1';
+          'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(q)}&format=json&accept-language=en&limit=1';
       final r = await http.get(Uri.parse(url),
-          headers: {'User-Agent': 'TravellyApp/1.0 (QUT student project)'}).timeout(const Duration(seconds: 15));
+          headers: {'User-Agent': 'TravellyApp/1.0 (QUT student project)', 'Accept-Language': 'en'}).timeout(const Duration(seconds: 15));
       final d = jsonDecode(r.body);
       if (d is List && d.isNotEmpty) {
         return LatLng(double.parse(d[0]['lat'].toString()), double.parse(d[0]['lon'].toString()));
