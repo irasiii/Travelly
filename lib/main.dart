@@ -203,7 +203,12 @@ class AppState extends ChangeNotifier {
       }
       out.add(transitOption(b, type, depAt, _boardNameFor(type)));
     }
-    out.sort((a, b) => a.depAt!.compareTo(b.depAt!));
+    if (arriveMode) {
+      // Arrive mode: show the option arriving closest to the target time first.
+      out.sort((a, b) => b.depAt!.compareTo(a.depAt!));
+    } else {
+      out.sort((a, b) => a.depAt!.compareTo(b.depAt!));
+    }
     return out;
   }
 
