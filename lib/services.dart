@@ -40,8 +40,8 @@ class Services {
   /// Address autocomplete (street-level), biased to [near].
   static Future<List<Suggestion>> geocode(String q, {LatLng? near}) async {
     if (q.trim().length < 2) return [];
-    final bias = near != null ? '&lat=${near.latitude}&lon=${near.longitude}' : '';
-    final url = '$_photon/api/?q=${Uri.encodeComponent(q)}&limit=8&lang=en$bias';
+    final bias = near != null ? '&lat=${near.latitude}&lon=${near.longitude}&location_bias_scale=0.5' : '';
+    final url = '$_photon/api/?q=${Uri.encodeComponent(q)}&limit=10&lang=en$bias';
     try {
       final r = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 15));
       final data = jsonDecode(r.body);
@@ -56,11 +56,16 @@ class Services {
           (p['osm_value'] ?? '').toString(),
         );
       }).toList();
+      if (near != null) {
+        out.sort((a, b) => _distM(near, a.pos).compareTo(_distM(near, b.pos)));
+      }
       if (out.isNotEmpty) return out;
     } catch (_) {}
     // Fallback: Nominatim catches towns/cities/regions Photon may miss.
     return _nominatimSuggest(q, near: near);
   }
+
+  static double _distM(LatLng a, LatLng b) => const Distance().as(LengthUnit.Meter, a, b);
 
   static Future<List<Suggestion>> _nominatimSuggest(String q, {LatLng? near}) async {
     if (q.trim().length < 3) return [];
@@ -76,7 +81,7 @@ class Services {
           headers: {'User-Agent': 'TravellyApp/1.0 (QUT student project)', 'Accept-Language': 'en'}).timeout(const Duration(seconds: 12));
       final d = jsonDecode(r.body);
       if (d is! List) return [];
-      return d.map<Suggestion>((e) {
+      final list = d.map<Suggestion>((e) {
         final full = (e['display_name'] as String?) ?? 'Unknown';
         final parts = full.split(',');
         final main = parts.first.trim();
@@ -90,6 +95,10 @@ class Services {
           (e['type'] ?? '').toString(),
         );
       }).toList();
+      if (near != null) {
+        list.sort((a, b) => _distM(near, a.pos).compareTo(_distM(near, b.pos)));
+      }
+      return list;
     } catch (_) {
       return [];
     }
