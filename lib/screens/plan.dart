@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 import '../main.dart';
 import '../models.dart';
 import '../services.dart';
+import '../db.dart';
 import 'routes.dart';
 import 'extras.dart';
 
@@ -22,11 +24,25 @@ class _PlanScreenState extends State<PlanScreen> {
   DateTime? _date;
   TimeOfDay? _time;
   bool _busy = false;
+  final _destFocus = FocusNode();
+  List<Map> _recent = [];
 
   @override
   void initState() {
     super.initState();
     _prefillCurrent();
+    _recent = Db.recentDests();
+    _destFocus.addListener(() {
+      if (_destFocus.hasFocus && _dest.text.trim().isEmpty && _recent.isNotEmpty) {
+        setState(() => _active = 'recent');
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _destFocus.dispose();
+    super.dispose();
   }
 
   void _prefillCurrent() {
@@ -53,16 +69,34 @@ class _PlanScreenState extends State<PlanScreen> {
     if (mounted) setState(() { _sug = res; _active = field; });
   }
 
-  void _pick(Suggestion s) {
+  void _pick(Suggestion s) async {
     final app = context.read<AppState>();
     if (_active == 'dest') {
-      _dest.text = s.main + (s.sec.isNotEmpty ? ', ${s.sec.split(',').first}' : '');
+      final name = s.main + (s.sec.isNotEmpty ? ', ${s.sec.split(',').first}' : '');
+      _dest.text = name;
       app.setDest(s.pos, s.main);
+      await Db.addRecentDest(s.main, s.pos.latitude, s.pos.longitude);
+      _recent = Db.recentDests();
+      if (!mounted) return;
+      setState(() { _sug = []; _active = ''; });
+      _destFocus.unfocus();
+      _find();
     } else {
       _cur.text = s.main;
       app.userLoc = s.pos;
+      setState(() { _sug = []; _active = ''; });
     }
-    setState(() { _sug = []; _active = ''; });
+  }
+
+  void _pickRecent(Map m) {
+    final app = context.read<AppState>();
+    final pos = LatLng((m['lat'] as num).toDouble(), (m['lon'] as num).toDouble());
+    final name = '${m['name']}';
+    _dest.text = name;
+    app.setDest(pos, name);
+    setState(() { _active = ''; _sug = []; });
+    _destFocus.unfocus();
+    _find();
   }
 
   Future<void> _find() async {
@@ -125,9 +159,10 @@ class _PlanScreenState extends State<PlanScreen> {
           _field(_cur, 'Current location', brand, 'cur'),
           if (_active == 'cur') _suggestions(),
           const SizedBox(height: 8),
-          _field(_dest, 'Destination — type a street (e.g. Warwick Rd)',
+          _field(_dest, 'Destination — street, brand or venue (e.g. Aldi, Sunnybank Plaza)',
               const Color(0xFFE5343D), 'dest'),
           if (_active == 'dest') _suggestions(),
+          if (_active == 'recent') _recentList(),
           const SizedBox(height: 14),
           _segment(),
           if (_timing != 'now') ...[
@@ -167,13 +202,17 @@ class _PlanScreenState extends State<PlanScreen> {
         Expanded(
           child: TextField(
             controller: c,
+            focusNode: field == 'dest' ? _destFocus : null,
             decoration: InputDecoration(hintText: hint, border: InputBorder.none),
             onChanged: (v) {
               if (field == 'dest') context.read<AppState>().destLoc = null;
               if (v.replaceAll('📍', '').trim().length >= 2) {
                 _search(field, v.replaceAll('📍', '').trim());
               } else {
-                setState(() { _sug = []; _active = ''; });
+                setState(() {
+                  _sug = [];
+                  _active = (field == 'dest' && _recent.isNotEmpty) ? 'recent' : '';
+                });
               }
             },
           ),
@@ -194,9 +233,46 @@ class _PlanScreenState extends State<PlanScreen> {
               leading: const Icon(Icons.place_outlined, size: 20),
               title: Text(s.main, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
               subtitle: s.sec.isNotEmpty ? Text(s.sec, maxLines: 1, overflow: TextOverflow.ellipsis) : null,
+              trailing: _distWidget(s.pos),
               onTap: () => _pick(s),
             )).toList(),
       ),
+    );
+  }
+
+  Widget? _distWidget(LatLng pos) {
+    final u = context.read<AppState>().userLoc;
+    if (u == null) return null;
+    final km = const Distance().as(LengthUnit.Kilometer, u, pos);
+    final label = km < 1 ? '${(km * 1000).round()} m' : '${km.toStringAsFixed(1)} km';
+    return Text(label, style: const TextStyle(color: brand, fontWeight: FontWeight.w700, fontSize: 12));
+  }
+
+  Widget _recentList() {
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      decoration: BoxDecoration(
+          color: Colors.white, borderRadius: BorderRadius.circular(14),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 12)]),
+      child: Column(children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(14, 10, 14, 2),
+          child: Align(alignment: Alignment.centerLeft,
+              child: Text('RECENT DESTINATIONS',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF6B7280), letterSpacing: .5))),
+        ),
+        ..._recent.map((m) {
+          final pos = LatLng((m['lat'] as num).toDouble(), (m['lon'] as num).toDouble());
+          return ListTile(
+            dense: true,
+            leading: const Icon(Icons.history, size: 20),
+            title: Text('${m['name']}', maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            trailing: _distWidget(pos),
+            onTap: () => _pickRecent(m),
+          );
+        }),
+      ]),
     );
   }
 

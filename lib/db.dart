@@ -83,4 +83,24 @@ class Db {
     }
     return {'km': km, 'kcal': kcal, 'co2': co2, 'count': trips.length.toDouble()};
   }
+
+  static List<Map> recentDests() {
+    final e = currentEmail;
+    if (e == null) return [];
+    final list = (_session.get('recent_$e') as List?) ?? [];
+    return list.cast<Map>();
+  }
+
+  static Future<void> addRecentDest(String name, double lat, double lon) async {
+    final e = currentEmail;
+    if (e == null) return;
+    final key = 'recent_$e';
+    final list = ((_session.get(key) as List?) ?? []).toList();
+    list.removeWhere((m) => (m as Map)['name'] == name);
+    list.insert(0, {'name': name, 'lat': lat, 'lon': lon});
+    while (list.length > 6) {
+      list.removeLast();
+    }
+    await _session.put(key, list);
+  }
 }
