@@ -60,6 +60,8 @@ class RoutesScreen extends StatelessWidget {
                   Text('${app.userLabel} → ${app.destName}',
                       style: const TextStyle(color: Color(0xFF6B7280), fontSize: 13)),
                   const SizedBox(height: 10),
+                  _timingBar(context, app),
+                  const SizedBox(height: 10),
                   _modeSelector(context, app),
                   const SizedBox(height: 6),
                   const Text('Tap a route to see details, then start or schedule it.',
@@ -73,6 +75,63 @@ class RoutesScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _timingBar(BuildContext context, AppState app) {
+    Future<void> pick(String kind) async {
+      if (kind == 'now') {
+        app.updateTiming('now', null);
+        return;
+      }
+      final base = app.tripWhen ?? DateTime.now().add(Duration(hours: kind == 'arrive' ? 1 : 0));
+      final d = await showDatePicker(
+          context: context,
+          initialDate: base,
+          firstDate: DateTime.now().subtract(const Duration(days: 1)),
+          lastDate: DateTime.now().add(const Duration(days: 365)));
+      if (d == null) return;
+      final t = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(base));
+      if (t == null) return;
+      app.updateTiming(kind, DateTime(d.year, d.month, d.day, t.hour, t.minute));
+    }
+
+    Widget chip(String k, String label) {
+      final on = app.timing == k;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => pick(k),
+          child: Container(
+            margin: const EdgeInsets.all(3),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              color: on ? Colors.white : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: on ? const [BoxShadow(color: Colors.black12, blurRadius: 6)] : null,
+            ),
+            child: Center(
+                child: Text(label,
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: on ? brand : const Color(0xFF6B7280)))),
+          ),
+        ),
+      );
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(
+        decoration: BoxDecoration(color: const Color(0xFFEEF0F6), borderRadius: BorderRadius.circular(12)),
+        child: Row(children: [chip('now', 'Now'), chip('depart', 'Depart'), chip('arrive', 'Arrive')]),
+      ),
+      if (app.timing != 'now' && app.tripWhen != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+              '${app.timing == 'arrive' ? '🎯 Arrive by' : '🚀 Depart'} ${fmtDateTime(app.tripWhen!)}',
+              style: const TextStyle(color: brand, fontWeight: FontWeight.w700, fontSize: 12)),
+        ),
+    ]);
   }
 
   Widget _modeSelector(BuildContext context, AppState app) {

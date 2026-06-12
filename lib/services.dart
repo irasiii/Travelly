@@ -224,8 +224,8 @@ class Services {
     final q = '[out:json][timeout:20];('
         'node(around:2500,${p.latitude},${p.longitude})[highway=bus_stop];'
         'node(around:2500,${p.latitude},${p.longitude})[public_transport=platform];'
-        'node(around:5000,${p.latitude},${p.longitude})[railway=station];'
-        'node(around:5000,${p.latitude},${p.longitude})[railway=halt];'
+        'node(around:8000,${p.latitude},${p.longitude})[railway=station];'
+        'node(around:8000,${p.latitude},${p.longitude})[railway=halt];'
         ');out body 50;';
     try {
       final r = await http
@@ -261,8 +261,8 @@ class Services {
     final q = '[out:json][timeout:20];('
         'node(around:2500,${p.latitude},${p.longitude})[highway=bus_stop];'
         'node(around:2500,${p.latitude},${p.longitude})[public_transport=platform];'
-        'node(around:5000,${p.latitude},${p.longitude})[railway=station];'
-        'node(around:5000,${p.latitude},${p.longitude})[railway=halt];'
+        'node(around:8000,${p.latitude},${p.longitude})[railway=station];'
+        'node(around:8000,${p.latitude},${p.longitude})[railway=halt];'
         'node(around:4000,${p.latitude},${p.longitude})[amenity=ferry_terminal];'
         'node(around:4000,${p.latitude},${p.longitude})[ferry=yes];'
         ');out body 80;';

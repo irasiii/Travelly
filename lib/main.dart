@@ -111,6 +111,17 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Change timing on the routes screen and recompute departure/arrival times.
+  void updateTiming(String t, DateTime? when) {
+    timing = t;
+    tripWhen = when;
+    if (baseRoutes.isNotEmpty) {
+      _rebuild();
+    } else {
+      notifyListeners();
+    }
+  }
+
   void setMode(String m) {
     mode = m;
     _rebuild();
