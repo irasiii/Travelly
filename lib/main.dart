@@ -195,7 +195,8 @@ class AppState extends ChangeNotifier {
       DateTime depAt;
       if (arriveMode) {
         // Work backwards: arrive a little before the target, depart = arrival - duration.
-        final arriveBy = tripWhen!.subtract(Duration(minutes: i * 8));
+        // All options arrive just before the target time (0-12 min early), nearest first.
+      final arriveBy = tripWhen!.subtract(Duration(minutes: i * 3));
         depAt = arriveBy.subtract(Duration(seconds: dur.round()));
       } else {
         depAt = departBase.add(Duration(minutes: offsets[i]));
